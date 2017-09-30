@@ -20,7 +20,8 @@ int main(int argc, char *argv[]){
 }
 
 void insertNewLine(){
-    E.cy++;
+    if(E.cy < E.screen_rows-1)
+        E.cy++;
     E.cx = 0;
     E.coloff = 0;
     E.numrows++;
@@ -78,7 +79,7 @@ void drawScreen(void){
     cursorGO(E.cy+1,E.cx+1); 
 }
 
-/* This shit is fckin working */
+
 void move_cursor(int direction){
     ROW *row = E.row + E.row_index;
     switch (direction)
@@ -97,17 +98,13 @@ void move_cursor(int direction){
         break;
 
     case ARROW_UP:
+    if(E.row_index>0){
+            E.row_index--;
         if (E.cy > 0)
-        {
-            E.row_index--;
             E.cy--;
-        }
         else if (E.rowoff > 0)
-        {
-            E.row_index--;
             E.rowoff--;
-        }
-
+    }
         break;
 
     case ARROW_RIGHT:
@@ -182,7 +179,7 @@ void deletechar(int pos, ROW *row){
     E.cx--;
 }
 
-void deleteProcess(ROW *row, ROW *prevRow) /*incomplet (a little bit complicated)*/{
+void deleteProcess(ROW *row, ROW *prevRow){
     if (E.cx > 0){ /*we have somthing to delete*/
         deletechar(E.cx - 1, row);
     }
