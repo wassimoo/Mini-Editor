@@ -58,7 +58,7 @@ void textAppend(struct Text *txt, char *s, int len){
 void drawScreen(void){
     struct Text txt = {NULL, 0};
     textAppend(&txt, "\x1b[?25l", 6); /*Hide*/
-    textAppend(&txt, "\x1b[H", 3);    /*Go Home*/
+    textAppend(&txt, "\x1b[H", 3);  /*Go home*/
 
     int i;
     int rowIndex = E.row_index;
@@ -75,7 +75,7 @@ void drawScreen(void){
     }
     textAppend(&txt, "\x1b[?25h", 6); /* Show cursor. */
     write(STDOUT_FILENO, txt.b, txt.len);
-    cursorGO(E.cy+1,E.cx+1);
+    cursorGO(E.cy+1,E.cx+1); 
 }
 
 /* This shit is fckin working */
@@ -312,8 +312,8 @@ void initEditor(){
     E.numrows = 1;
     struct winsize w;
     ioctl(STDIN_FILENO, TIOCGWINSZ, &w);
-    E.screen_rows = w.ws_row;
-    E.screen_cols = w.ws_col;
+    E.screen_rows = w.ws_row-1;
+    E.screen_cols = w.ws_col-1;
 }
 
 void echo_off(void){
@@ -331,11 +331,3 @@ void echo_on(void){
     tcsetattr(0, TCSANOW, &stored_settings);
     return;
 }
-
-/*================================== Known Bugs List ================================== 
-    * if deleting starts from the above row it crushs on the upper row;;;;;;;
-    * Handle the TAB Key:
-        * diffrence between cursor and E.cx (think of updating E.cx to current cursor position on TAB click)
-        * Update spacing between chars if tab is insertd in the middle of Line ;
-    * Handle on screen size change (Update E.screen_rows and E.screen_cols and redraw screen);;;;;
- ================================== Known Bugs List ==================================*/
