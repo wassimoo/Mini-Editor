@@ -183,25 +183,25 @@ void deletechar(int pos, ROW *row){
 }
 
 void deleteProcess(ROW *row, ROW *prevRow) /*incomplet (a little bit complicated)*/{
-    if (E.cx > 0)
-    { /*we have somthing to delete*/
+    if (E.cx > 0){ /*we have somthing to delete*/
         deletechar(E.cx - 1, row);
     }
-    else if (E.cy > 0)
-    { /*handle the case where there's no line suppression*/
-        resizeString(prevRow->chars,
+    else if (E.cy > 0){ /*handle the case where there's no line suppression*/
+       prevRow->chars =  resizeString(prevRow->chars,
                      prevRow->length + row->length - 1);                        /*-1 for one single null term*/
-        memmove(prevRow->chars + prevRow->length - 2, row->chars, row->length); /*-2 to move null term + newline term*/
+        memmove(prevRow->chars + prevRow->length - 1, row->chars, row->length); /*-2 to move null term + newline term*/
+        E.cx = prevRow->length-1;
         prevRow->length = prevRow->length + row->length - 1;
-
+             
         /*move rows by 1 position to the left and free() last row */
         if (E.row_index > E.numrows - 1)
             row = memmove(row, E.row + E.row_index + 1, E.numrows - E.row_index - 1);
 
         cursorup(1);
-        cursorforward(prevRow->length);
+        cursorforward(E.cx);
         E.row_index--;
         E.numrows--;
+        E.cy--;
     }
 }
 
@@ -217,18 +217,11 @@ void insertChar(char c){
     /*ROW *debug_r = E.row;*/
 
     E.row[E.row_index].chars = resizeString(E.row[E.row_index].chars, E.row[E.row_index].length + 1);
-    E.row[E.row_index].chars[E.row[E.row_index].length - 1] = c;
-    E.row[E.row_index].chars[E.row[E.row_index].length] = '\0';
-    // printf("%c", E.row[E.row_index].chars[E.row[E.row_index].length - 1]); //(printf("%c",c))
+    char* pos =  E.row[E.row_index].chars+E.cx;
+    memmove(pos+1,pos,E.row[E.row_index].length-E.cx);
+    *pos = c;
     E.row[E.row_index].length++;
-    /* if (E.cx == E.screen_cols)
-        {
-            cursordown(1);
-            cursorbackward(E.row[E.row_index].length);
-            E.cx = 0;
-            E.cy++;
-        }
-        else*/
+            /*Possibly \0 missing*/
     E.cx++;
 }
 
