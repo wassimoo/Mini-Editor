@@ -22,17 +22,38 @@ int main(int argc, char *argv[]){
 void insertNewLine(){
     if(E.cy < E.screen_rows-1)
         E.cy++;
+    insertRow();
     E.cx = 0;
     E.coloff = 0;
-    E.numrows++;
     E.row_index++;
-    E.row = realloc(E.row, E.numrows * sizeof(ROW));
-    E.row[E.row_index].chars = malloc(1);
-    E.row[E.row_index].chars[0] = '\0';
-    E.row[E.row_index].length = 1;
     if (E.numrows > E.screen_rows)
         E.rowoff++;
     //TO BE CONTINUED :)
+}
+
+void insertRow(void){
+    E.numrows++; //add new row to count
+    E.row = realloc(E.row,E.numrows*sizeof(ROW)); //realloc rows in memmory to fit number of rows
+    
+    int i;
+    for(i = E.numrows-1; i>E.row_index+1;i--){ //We Start moving memory blocks from last block till the block before rowIndex ;
+        E.row[i].chars = resizeString(E.row[i].chars,E.row[i-1].length); //Resize strig to fit
+        memmove(E.row[i].chars,E.row[i-1].chars,E.row[i-1].length); //move Line to next row
+        E.row[i].length = E.row[i-1].length; //update ligne length
+    }
+
+    ROW *orig = &E.row[E.row_index];
+    
+    ROW *dest = &E.row[E.row_index+1];
+
+    dest->length = orig->length - E.cx;
+    dest->chars = realloc(dest->chars, sizeof(char) * dest->length);
+    memmove(dest->chars,orig->chars+E.cx,dest->length);
+    
+    orig->chars = realloc(orig->chars, sizeof(char) * E.cx+1); //Resize with nedded chars  (E.cx) +1 for null term
+    orig->length = E.cx+1;
+    orig->chars [orig->length-1] = '\0';
+    
 }
 
 void write_to_file(void){
@@ -78,7 +99,6 @@ void drawScreen(void){
     write(STDOUT_FILENO, txt.b, txt.len);
     cursorGO(E.cy+1,E.cx+1); 
 }
-
 
 void move_cursor(int direction){
     ROW *row = E.row + E.row_index;
@@ -172,7 +192,7 @@ void move_cursor(int direction){
     cursorGO(E.cy + 1, E.cx + 1);
 }
 
-/*Delete one single char at a specific position */
+/*Delete single char at a specific position */
 void deletechar(int pos, ROW *row){
     memmove(row->chars + pos, row->chars + pos + 1, row->length - pos);
     row->length--;

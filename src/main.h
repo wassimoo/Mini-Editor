@@ -60,6 +60,7 @@ void textAppend(struct Text *txt, char *s, int len);
 void drawScreen(void);
 char *resizeString(char *chars ,int newSize);
 void process_key(int key);
+void insertRow(void);
 void insertNewLine();
 void insertChar(char c);
 void initEditor();
