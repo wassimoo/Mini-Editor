@@ -28,7 +28,7 @@ void insertNewLine(){
     E.cx = 0;
     E.coloff = 0;
     E.row_index++;
-    if (E.numrows > E.screen_rows)
+    if (E.numrows > E.screen_rows && E.cy >= E.screen_rows-1)
         E.rowoff++;
     //TO BE CONTINUED :)
 }
@@ -36,9 +36,11 @@ void insertNewLine(){
 void insertRow(void){
     E.numrows++; //add new row to count
     E.row = realloc(E.row,E.numrows*sizeof(ROW)); //realloc rows in memmory to fit number of rows
-    
+    E.row[E.numrows-1].chars =  malloc(1);
+    E.row[E.numrows-1].chars[0] = '\0';
+
     int i;
-    for(i = E.numrows-1; i>E.row_index+1;i--){ //We Start moving memory blocks from last block till the block before rowIndex ;
+    for(i = E.numrows-1; i>E.row_index;i--){ //We Start moving memory blocks from last block till the block before rowIndex ;
         E.row[i].chars = resizeString(E.row[i].chars,E.row[i-1].length); //Resize strig to fit
         memmove(E.row[i].chars,E.row[i-1].chars,E.row[i-1].length); //move Line to next row
         E.row[i].length = E.row[i-1].length; //update ligne length
@@ -49,7 +51,7 @@ void insertRow(void){
     ROW *dest = &E.row[E.row_index+1];
 
     dest->length = orig->length - E.cx;
-    dest->chars = realloc(dest->chars, sizeof(char) * dest->length);
+    dest->chars = malloc(dest->length);
     memmove(dest->chars,orig->chars+E.cx,dest->length);
     
     orig->chars = realloc(orig->chars, sizeof(char) * E.cx+1); //Resize with nedded chars  (E.cx) +1 for null term
@@ -201,21 +203,27 @@ void deletechar(int pos, ROW *row){
     E.cx--;
 }
 
+
 void deleteProcess(ROW *row, ROW *prevRow){
     if (E.cx > 0){ /*we have somthing to delete*/
         deletechar(E.cx - 1, row);
     }
-    else if (E.cy > 0){ /*handle the case where there's no line suppression*/
-       prevRow->chars =  resizeString(prevRow->chars,
-                     prevRow->length + row->length - 1);                        /*-1 for one single null term*/
+    else if (E.cy > 0){ 
+        /*move Row to upper Row*/
+        prevRow->chars =  resizeString(prevRow->chars,prevRow->length + row->length - 1); /*-1 for one single null term*/
         memmove(prevRow->chars + prevRow->length - 1, row->chars, row->length); /*-2 to move null term + newline term*/
-        E.cx = prevRow->length-1;
-        prevRow->length = prevRow->length + row->length - 1;
-             
-        /*move rows by 1 position to the left and free() last row */
-        if (E.row_index > E.numrows - 1)
-            row = memmove(row, E.row + E.row_index + 1, E.numrows - E.row_index - 1);
-
+        E.cx = prevRow->length-1;        
+        prevRow->length = prevRow->length + row->length - 1;     
+        row->chars = realloc(row->chars,1);
+    
+        /*move all rows by 1 position up and free() last row */
+        int i;
+        for(i = E.row_index; i < E.numrows-1;i++){
+            E.row[i].chars = realloc(E.row[i].chars,E.row[i+1].length);
+            memmove(&E.row[i].chars,&E.row[i+1].chars,E.row[i].length);
+            E.row[i].length = E.row[i+1].length;
+        }
+       
         cursorup(1);
         cursorforward(E.cx);
         E.row_index--;
