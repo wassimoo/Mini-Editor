@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include "main.h"
 
+#define TABSPC 4
+
 static EDITOR E;
 static struct termios stored_settings;
 
@@ -242,10 +244,23 @@ void insertChar(char c){
     E.cx++;
 }
 
+void insertTab(void){
+    ROW *line = &E.row[E.row_index];
+    line->chars = resizeString(line->chars,line->length+TABSPC);
+    memmove(line->chars+E.cx+TABSPC,line->chars+E.cx,line->length-E.cx);
+    int i;
+    for(i = 0;i<TABSPC; i++){
+        line->chars[E.cx] = ' ';
+        E.cx++;
+    }
+    line->length+=4;
+    cursorforward(TABSPC);
+}
+
 int get_key(void){
     char c;
     c = fgetc(stdin);
-    if (c == 'z')
+    if (c == 'Q')
     {
         write_to_file();
         echo_on();
@@ -273,6 +288,7 @@ int get_key(void){
             return END_KEY;
         }
     }
+
     else
     {
         return c;
@@ -301,6 +317,9 @@ void process_key(int key){
         insertNewLine();
         cursorGO(E.cy + 1, E.cx + 1);
         break;
+    case TAB :
+        insertTab();
+        break; 
     default:
         insertChar(key);
         break;
