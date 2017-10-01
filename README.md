@@ -10,8 +10,6 @@ Status : Buggy/ Under development.
 * Handle on screen size change (Update E.screen_rows and E.screen_cols and redraw screen).
 * Add Color Schemas 
 * Add Languages Support
-* Add autosaving
-
 # Using 
 Not recommanded for usage, still buggy and missing lot of features.
 Still currently Under Development (daily fixes and updates) ...
