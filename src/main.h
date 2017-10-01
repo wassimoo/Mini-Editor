@@ -57,16 +57,31 @@ struct Text {
 };
 
 void textAppend(struct Text *txt, char *s, int len);
+
 void drawScreen(void);
+
 char *resizeString(char *chars ,int newSize);
+
 void process_key(int key);
+
 void insertRow(void);
+
 void insertNewLine();
+
 void insertChar(char c);
+
+void insertTab(void);
+
 void initEditor();
+
 void deleteProcess(ROW* row,ROW* prevRow);
+
 int get_key(void);
+
 void write_to_file(void);
+
 void move_cursor(int direction);
+
 void echo_on(void);
+
 void echo_off(void);
