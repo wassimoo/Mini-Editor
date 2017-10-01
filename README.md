@@ -2,7 +2,7 @@
 A minimal Code Editor that is written in C and uses VT100 Escape sequences (Inspired from Kilo & nano Code editors)
 Current Version : 0.01 . 
 
-Status : Bugy/ Under development.
+Status : Buggy/ Under development.
 
 # Known Bugs List / Future Features:
 * Handle the TAB Key:
@@ -14,5 +14,5 @@ Status : Bugy/ Under development.
 * Add autosaving
 
 # Using 
-Not recommanded for usage, still bugy and missing lot of features.
+Not recommanded for usage, still buggy and missing lot of features.
 Still currently Under Development (daily fixes and updates) ...
