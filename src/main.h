@@ -49,6 +49,9 @@ typedef struct
     ROW *row;
     u_int row_index;
     FILE *file;
+    char* fileName;
+    int isTmp;
+    int isDirty;
 } EDITOR;
 
 struct Text {

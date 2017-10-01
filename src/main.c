@@ -4,17 +4,33 @@
 #include <sys/ioctl.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 #include "main.h"
 
 #define TABSPC 4
-
+#define WAITBEFORESAVE 3
 static EDITOR E;
 static struct termios stored_settings;
 
 int main(int argc, char *argv[]){
+    if(argc < 2){
+        E.fileName = strdup("tmp.txt");
+        E.isTmp = 1;
+    }
+    else{
+        E.fileName = strdup(argv[1]);
+        E.isTmp = 0;
+    }
+
     initEditor();
-    while (1)
+    u_int waitFor = time(0) + WAITBEFORESAVE;
+    while (1 )
     {
+        if(time(0) >= waitFor && !E.isTmp){
+            if(E.isDirty)
+                write_to_file();
+            waitFor += WAITBEFORESAVE;
+        }
         drawScreen();
         process_key(get_key());
     }
@@ -61,14 +77,18 @@ void insertRow(void){
 }
 
 void write_to_file(void){
-    E.file = fopen("this.txt", "w");
-    //TODO: handle failure on opening file
+    if((E.file = fopen(E.fileName, "w+")) == NULL){
+        printf("\nCould not open File %s verify permissions.\n",E.fileName);
+        exit(-4);
+        }
+
     int i;
-    for (i = 0; i < E.numrows; i++, E.row++)
+    for (i = 0; i < E.numrows; i++)
     {
-        fputs(E.row->chars, E.file);
+        fputs(E.row[i].chars, E.file);
         fputc('\n', E.file);
     }
+    fclose(E.file);
 }
 
 void textAppend(struct Text *txt, char *s, int len){
@@ -299,6 +319,8 @@ int get_key(void){
 
     else
     {
+        if(c != -1)
+            E.isDirty = 1;
         return c;
     }
 }
@@ -306,6 +328,8 @@ int get_key(void){
 void process_key(int key){
     switch (key)
     {
+    case -1:
+        break;
     case ARROW_LEFT:
     case ARROW_RIGHT:
     case ARROW_UP:
@@ -351,6 +375,7 @@ void initEditor(){
     ioctl(STDIN_FILENO, TIOCGWINSZ, &w);
     E.screen_rows = w.ws_row-1;
     E.screen_cols = w.ws_col-1;
+    E.isDirty = 0;
 }
 
 void echo_off(void){
@@ -358,7 +383,7 @@ void echo_off(void){
     tcgetattr(0, &stored_settings);
     new_settings = stored_settings;
     new_settings.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-    new_settings.c_cc[VMIN] = 1;
+    new_settings.c_cc[VMIN] = 0;
     new_settings.c_cc[VTIME] = 1;
     tcsetattr(0, TCSANOW, &new_settings);
     return;
