@@ -5,10 +5,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <math.h>
 #include "main.h"
 
 #define TABSPC 4
 #define WAITBEFORESAVE 3
+#define VERSION "0.0.1"
+#define VERSIONLENTH 5
+
 static EDITOR E;
 static struct termios stored_settings;
 
@@ -21,7 +25,7 @@ int main(int argc, char *argv[]){
         E.fileName = strdup(argv[1]);
         E.isTmp = 0;
     }
-
+    E.fileBaseName = getFileBaseName();
     initEditor();
     u_int waitFor = time(0) + WAITBEFORESAVE;
     while (1 )
@@ -104,11 +108,18 @@ void textAppend(struct Text *txt, char *s, int len){
 void drawScreen(void){
     struct Text txt = {NULL, 0};
     textAppend(&txt, "\x1b[?25l", 6); /*Hide*/
-    textAppend(&txt, "\x1b[H", 3);  /*Go home*/
-
+    textAppend(&txt, "\x1b[30;47m", 8); /*Black on white*/  
+    textAppend(&txt, "\033[H", 3);  /*Go home*/
+    titleBar(&txt);
+    textAppend(&txt, "\x1b[0m", 5); /*Cyan*/      
+    textAppend(&txt, "\x1b[0K\r\n", 7);
+    
+    //textAppend(&txt, "\x1b[42m", 5);
+    //textAppend(&txt, "\x1b[0m", 5);
+    
     int i;
     int rowIndex = E.row_index;
-    for (i = 0,rowIndex=E.rowoff;i < E.screen_rows ; i++)
+    for (i = 0,rowIndex=E.rowoff;i < E.screen_rows-1 ; i++)
     {
         if(rowIndex < E.numrows){
             textAppend(&txt, E.row[rowIndex].chars, E.row[rowIndex].length);
@@ -144,7 +155,7 @@ void move_cursor(int direction){
     case ARROW_UP:
     if(E.row_index>0){
             E.row_index--;
-        if (E.cy > 0)
+        if (E.cy > 1)
             E.cy--;
         else if (E.rowoff > 0)
             E.rowoff--;
@@ -189,7 +200,7 @@ void move_cursor(int direction){
                 if (E.row_index > 0)
                 {
                     E.cx = E.row[E.row_index - 1].length - 1;
-                    if (E.cy == 0)
+                    if (E.cy == 1)
                     {
                         if (E.rowoff > 0)
                             E.rowoff--;
@@ -223,24 +234,24 @@ void deletechar(int pos, ROW *row){
     E.cx--;
 }
 
-
 void deleteProcess(ROW *row, ROW *prevRow){
     if (E.cx > 0){ /*we have somthing to delete*/
         deletechar(E.cx - 1, row);
     }
-    else if (E.cy > 0){ 
+    else if (E.cy > 1){ 
         /*move Row to upper Row*/
         prevRow->chars =  resizeString(prevRow->chars,prevRow->length + row->length - 1); /*-1 for one single null term*/
         memmove(prevRow->chars + prevRow->length - 1, row->chars, row->length); /*-2 to move null term + newline term*/
         E.cx = prevRow->length-1;        
         prevRow->length = prevRow->length + row->length - 1;     
         row->chars = realloc(row->chars,1);
+
     
         /*move all rows by 1 position up and free() last row */
         int i;
         for(i = E.row_index; i < E.numrows-1;i++){
             E.row[i].chars = realloc(E.row[i].chars,E.row[i+1].length);
-            memmove(&E.row[i].chars,&E.row[i+1].chars,E.row[i].length);
+            memmove(E.row[i].chars,E.row[i+1].chars,E.row[i].length);
             E.row[i].length = E.row[i+1].length;
         }
        
@@ -358,6 +369,33 @@ void process_key(int key){
     }
 }
 
+/*Display the current version,the current filename and whether 
+ *the current file has been modified on the titlebar*/
+void titleBar (struct Text *txt){
+    const char *editorName = "MINI ";
+    int editorNameLen = strlen(editorName);
+    int versionLength = VERSIONLENTH ;
+    int fileBaseNameLen = strlen(E.fileBaseName);
+    int remSpace = E.screen_cols - VERSIONLENTH - editorNameLen - fileBaseNameLen;
+    //TODO : Handle case where remSpace <0;
+    remSpace = (int) floor(remSpace/2);
+    
+    int dots = 0;
+    char bar[E.screen_cols+1];
+
+    int i;
+    for(i = 0; i < E.screen_cols; i++)
+        bar[i] = ' ';
+    bar[E.screen_cols] = '\0';
+    
+    
+    memmove(bar,editorName,editorNameLen);
+    memmove(bar+editorNameLen,VERSION,VERSIONLENTH);
+    memmove(bar+editorNameLen+VERSIONLENTH+remSpace,E.fileBaseName,fileBaseNameLen);
+    bar[editorNameLen+VERSIONLENTH+remSpace+fileBaseNameLen] = E.isTmp ? '*' : ' ';;
+    textAppend(txt,bar,E.screen_cols+1);
+}
+
 void initEditor(){
     echo_off();
     E.row = calloc(1, sizeof(E));
@@ -367,7 +405,7 @@ void initEditor(){
     E.row->chars[0] = '\0';
     E.row_index = 0;
     E.cx = 0;
-    E.cy = 0;
+    E.cy = 1;
     E.rowoff = 0;
     E.coloff = 0;
     E.numrows = 1;
@@ -376,6 +414,11 @@ void initEditor(){
     E.screen_rows = w.ws_row-1;
     E.screen_cols = w.ws_col-1;
     E.isDirty = 0;
+    
+    struct Text txt = {NULL, 0};
+    textAppend(&txt, "\x1b[H", 3);    
+    titleBar(&txt);
+    write(STDOUT_FILENO, txt.b, txt.len);
 }
 
 void echo_off(void){
@@ -393,3 +436,17 @@ void echo_on(void){
     tcsetattr(0, TCSANOW, &stored_settings);
     return;
 }
+
+char* getFileBaseName(void){
+    int i = strlen(E.fileName)-1 ;
+
+    while(E.fileName[i] != '/' && i > 0){
+        i--;
+    }
+
+    int baseNameLength = strlen(E.fileName - i);
+    char* baseName = malloc(baseNameLength);
+    strncpy(baseName, E.fileName, baseNameLength);
+    return baseName;
+}
+//TODO : before pushing : test with long file path .

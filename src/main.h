@@ -50,6 +50,7 @@ typedef struct
     u_int row_index;
     FILE *file;
     char* fileName;
+    char* fileBaseName;
     int isTmp;
     int isDirty;
 } EDITOR;
@@ -60,6 +61,8 @@ struct Text {
 };
 
 void textAppend(struct Text *txt, char *s, int len);
+
+void titleBar(struct Text *txt);
 
 void drawScreen(void);
 
@@ -82,6 +85,8 @@ void deleteProcess(ROW* row,ROW* prevRow);
 int get_key(void);
 
 void write_to_file(void);
+
+char* getFileBaseName(void);
 
 void move_cursor(int direction);
 
