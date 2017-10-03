@@ -444,9 +444,9 @@ char* getFileBaseName(void){
         i--;
     }
 
-    int baseNameLength = strlen(E.fileName - i);
+    int baseNameLength = strlen(E.fileName)-i;
     char* baseName = malloc(baseNameLength);
-    strncpy(baseName, E.fileName, baseNameLength);
+    baseName = strncpy(baseName, E.fileName+i+1, baseNameLength);
+    
     return baseName;
 }
-//TODO : before pushing : test with long file path .
