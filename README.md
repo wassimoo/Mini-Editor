@@ -8,7 +8,7 @@ Status : Under development.
 # Features:
 * Auto Saving
 * Libraries dependency free
-* LightWight
+* Light Weight
 * Easy to use
 * customizable 
 
