@@ -42,7 +42,7 @@ int main(int argc, char *argv[]){
             waitFor += WAITBEFORESAVE;
         }
         drawScreen();
-        process_key(get_key());
+        process_key(readKey(STDIN_FILENO));
     }
     return 1;
 }
@@ -115,6 +115,9 @@ void textAppend(struct Text *txt, char *s, int len){
 
 void drawScreen(void){
     struct Text txt = {NULL, 0};
+    char *buff;
+    size_t buffSize;
+
     textAppend(&txt, "\x1b[?25l", 6); /*Hide*/
     textAppend(&txt, "\x1b[30;47m", 8); /*Black on white*/  
     textAppend(&txt, "\033[H", 3);  /*Go home*/
@@ -151,9 +154,19 @@ void drawScreen(void){
             textAppend(&txt, "~\x1b[0K\r\n", 7);
         }
     }
+
+    textAppend(&txt, "\x1b[30;47m", 8); /*Black on white*/
+    statusBar(&txt);
+    textAppend(&txt, "\x1b[0m", 5);
+
+    buffSize = snprintf(NULL, 0, "\x1b[%d;%dH", E.cy + 1, E.cx + 1);
+    buff = malloc(buffSize);
+    sprintf(buff, "\x1b[%d;%dH", E.cy + 1, E.cx + 1);
+    textAppend(&txt, buff, buffSize);
+
     textAppend(&txt, "\x1b[?25h", 6); /* Show cursor. */
-    write(STDOUT_FILENO, txt.b, txt.len);
-    cursorGO(E.cy + 1, E.cx + 1);
+
+    write(STDOUT_FILENO, txt.b, txt.len);    
 }
 
 void move_cursor(int direction){
@@ -250,36 +263,38 @@ void move_cursor(int direction){
 
 /*Delete single char at a specific position */
 void deletechar(int pos, ROW *row){
-    memmove(row->chars + pos, row->chars + pos + 1, row->length - pos);
+    memmove(row->chars + pos - 1, row->chars + pos, row->length - pos);
     row->length--;
-     /*   if(row->length>E.screen_cols)
-            E.coloff--;
-        else
+
+    if (E.coloff > 0) {
+        if (E.cx > 1)
             E.cx--;
-    */
-    if(E.cx > 1)
+        else
+            E.coloff--;
+    } else
         E.cx--;
-    else
-        E.coloff--;
 }
 
 void deleteProcess(ROW *row, ROW *prevRow){
     if (E.cx > 0)
     { /*we have somthing to delete*/
-        deletechar(E.cx + E.coloff - 1, row);
-    }
-    else if (E.cy > 1)
+        deletechar(E.cx + E.coloff, row);
+    } else if (E.cy > 1) //TODO : handle offrow supression
     {
         /*move Row to upper Row*/
         prevRow->chars = resizeString(prevRow->chars, prevRow->length + row->length - 1); /*-1 for one single null term*/
         memmove(prevRow->chars + prevRow->length - 1, row->chars, row->length);           /*-2 to move null term + newline term*/
-        E.cx = prevRow->length - 1;
-        if(E.cx>E.screen_cols){
-            E.coloff = E.cx-E.screen_cols;
-            E.cx = E.screen_cols;
-        }
+        int initLength = prevRow->length;
         prevRow->length = prevRow->length + row->length - 1;
         row->chars = realloc(row->chars, 1); //TODO : free();
+
+        if (prevRow->length > E.screen_cols) {
+            E.coloff = prevRow->length - E.screen_cols;
+            E.cx = E.screen_cols - row->length;
+        } else {
+            E.cx = initLength - 1; // -1 for one null term
+        }
+        
 
         /*move all rows by 1 position up and free() last row */
         int i;
@@ -290,8 +305,6 @@ void deleteProcess(ROW *row, ROW *prevRow){
             E.row[i].length = E.row[i + 1].length;
         }
 
-        cursorup(1);
-        cursorforward(E.cx);
         E.row_index--;
         E.numrows--;
         E.cy--;
@@ -308,14 +321,14 @@ char *resizeString(char *chars, int newSize){
 void insertChar(char c){ 
     /*-exec p 'main.c'::E.row+1*/
     /*ROW *debug_r = E.row;*/
-
+    if (!c) return;
     E.row[E.row_index].chars = resizeString(E.row[E.row_index].chars, E.row[E.row_index].length + 1);
     char* pos =  E.row[E.row_index].chars+(E.cx+E.coloff);
     memmove(pos+1,pos,E.row[E.row_index].length-(E.cx+E.coloff));
     *pos = c;
     E.row[E.row_index].length++;
 
-    if(E.cx < E.screen_cols)
+    if (E.row[E.row_index].length < E.screen_cols)
         E.cx++;
     else
         E.coloff++;
@@ -337,55 +350,78 @@ void insertTab(void){
         else
         E.coloff = line->length-E.screen_cols;
     }    
-    cursorforward(E.cx);
 }
 
-int get_key(void){
-    char c;
-    c = fgetc(stdin);
-    if (c == 'Q')
-    {
-        write_to_file();
-        echo_on();
-        system(CLEAR);
-        exit(0);
-    }
+int readKey(int fd) {
+    int nread;
+    char c, seq[3];
+    while ((nread = read(fd, &c, 1)) == 0);
 
-    else if (c == ESC)
-    {
-        getchar();
-        c = getchar();
-        /*escape sequence */
-        switch (c)
-        {
-        case 'A':
-            return ARROW_UP;
-        case 'B':
-            return ARROW_DOWN;
-        case 'C':
-            return ARROW_RIGHT;
-        case 'D':
-            return ARROW_LEFT;
-        case 'H':
-            return HOME_KEY;
-        case 'F':
-            return END_KEY;
+    while (1) {
+        switch (c) {
+            case ESC:    /* escape sequence */
+                /* If this is just an ESC, we'll timeout here. */
+                if (read(fd, seq, 1) == 0) return ESC;
+                if (read(fd, seq + 1, 1) == 0) return ESC;
+
+                /* ESC [ sequences. */
+                if (seq[0] == '[') {
+                    if (seq[1] >= '0' && seq[1] <= '9') {
+                        /* Extended escape, read additional byte. */
+                        if (read(fd, seq + 2, 1) == 0) return ESC;
+                        if (seq[2] == '~') {
+                            switch (seq[1]) {
+                                case '3':
+                                    return DEL_KEY;
+                                case '5':
+                                    return PAGE_UP;
+                                case '6':
+                                    return PAGE_DOWN;
+                            }
+                        }
+                    } else {
+                        switch (seq[1]) {
+                            case 'A':
+                                return ARROW_UP;
+                            case 'B':
+                                return ARROW_DOWN;
+                            case 'C':
+                                return ARROW_RIGHT;
+                            case 'D':
+                                return ARROW_LEFT;
+                            case 'H':
+                                return HOME_KEY;
+                            case 'F':
+                                return END_KEY;
+                        }
+                    }
+                }
+
+                    /* ESC O sequences. */
+                else if (seq[0] == 'O') {
+                    switch (seq[1]) {
+                        case 'H':
+                            return HOME_KEY;
+                        case 'F':
+                            return END_KEY;
+                    }
+                }
+                break;
+            default:
+                if (c == 'Q') {
+                    write_to_file();
+                    echo_on();
+                    system(CLEAR);
+                    exit(0);
+                }
+                return c;
         }
-    }
-
-    else
-    {
-        if(c != -1)
-            E.isDirty = 1;
-        return c;
     }
 }
 
 void process_key(int key){
     switch (key)
     {
-    case -1:
-        break;
     case ARROW_LEFT:
     case ARROW_RIGHT:
     case ARROW_UP:
@@ -440,6 +476,25 @@ void titleBar (struct Text *txt){
     textAppend(txt,bar,E.screen_cols+1);
 }
 
+void statusBar(struct Text *txt) {
+    size_t sizeCords = snprintf(NULL, 0, "Ln %d,Col %d |", E.cy + E.rowoff,
+                                E.cx + E.coloff + 1); //snprintf returns the number of bytes it would have written
+    char *cords = malloc(sizeCords + 1); //+1 for 1 null term
+    sprintf(cords, "Ln %d,Col %d |", E.cy + E.rowoff, E.cx + E.coloff + 1);
+
+    int progLangLength = strlen(E.progLang);
+
+    char bar[E.screen_cols + 1];
+    int i;
+    for (i = 0; i < E.screen_cols; i++)
+        bar[i] = ' ';
+    bar[E.screen_cols] = '\0';
+
+    memmove(bar + E.screen_cols - progLangLength - 1, E.progLang, progLangLength);
+    memmove(bar + E.screen_cols - progLangLength - sizeCords - 2, cords, sizeCords);
+    textAppend(txt, bar, E.screen_cols + 1);
+}
+
 void initEditor(){
     echo_off();
     E.row = calloc(1, sizeof(ROW));
@@ -469,6 +524,8 @@ void initEditor(){
 
     E.isDirty = 0;
     E.fileBaseName = E.isTmp == 1 ?  "Untitled" : getFileBaseName();
+
+    getProgLanguage();
 }
 
 void echo_off(void){
@@ -547,4 +604,38 @@ void watchWindowSize(int sigNo){
             E.screen_cols = w.ws_col-1;
         }
     }    
+}
+
+void getProgLanguage(void) {
+    int fileNameLen = (int) strlen(E.fileName) - 1;
+    int i = fileNameLen;
+
+    while (E.fileName[i] != '.' && i >= 0 && E.file != NULL) {
+        i--;
+    }
+
+    if (i == -1 || !E.file) {
+        E.progLang = strdup("Plain text");
+        return;
+    }
+    int extLength = fileNameLen - i;
+    char *langExtension = malloc(extLength);
+    langExtension = strncpy(langExtension, E.fileName + i + 1, fileNameLen - i);
+
+    if (!strcmp(langExtension, "c"))
+        E.progLang = strdup("C");
+    else if (!strcmp(langExtension, "h"))
+        E.progLang = strdup("C/C++");
+    else if (!strcmp(langExtension, "sh"))
+        E.progLang = strdup("Shell");
+    else if (!strcmp(langExtension, "class") || !strcmp(langExtension, "java"))
+        E.progLang = strdup("JAVA");
+    else if (!strcmp(langExtension, "cs"))
+        E.progLang = strdup("C#");
+    else if (!strcmp(langExtension, "cpp"))
+        E.progLang = strdup("C++");
+    else if (!strcmp(langExtension, "php"))
+        E.progLang = strdup("PHP");
+    else
+        E.progLang = strdup("Unknown");
 }

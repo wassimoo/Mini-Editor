@@ -50,6 +50,7 @@ typedef struct
     u_int row_index;
     FILE *file;
     char* fileName;
+    char *progLang;
     char* fileBaseName;
     int isTmp;
     int isDirty;
@@ -84,7 +85,7 @@ void loadFile(void);
 
 void deleteProcess(ROW* row,ROW* prevRow);
 
-int get_key(void);
+int readKey(int fd);
 
 void write_to_file(void);
 
@@ -97,3 +98,7 @@ void echo_on(void);
 void echo_off(void);
 
 static void watchWindowSize(int sigNo);
+
+void statusBar(struct Text *txt);
+
+void getProgLanguage(void);
