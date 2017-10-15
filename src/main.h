@@ -80,6 +80,8 @@ void insertTab(void);
 
 void initEditor();
 
+void loadFile(void);
+
 void deleteProcess(ROW* row,ROW* prevRow);
 
 int get_key(void);
@@ -93,3 +95,5 @@ void move_cursor(int direction);
 void echo_on(void);
 
 void echo_off(void);
+
+static void watchWindowSize(int sigNo);

@@ -1,15 +1,35 @@
 # Mini-Editor 
 A minimal Code Editor that is written in C and uses VT100 Escape sequences (Inspired from Kilo & nano Code editors)
 
-Current Version : 0.01 . 
+Current Version : 0.02 . 
 
-Status : Buggy/ Under development.
+Status : Under development.
 
-# Known Bugs List / Future Features:
+# Features:
+* Auto Saving
+* Libraries dependency free
+* LightWight
+* Easy to use
+* customizable 
 
-* Handle on screen size change (Update E.screen_rows and E.screen_cols and redraw screen).
-* Add Color Schemas 
-* Add Languages Support
-# Using 
-Not recommanded for usage, still buggy and missing lot of features.
+# Future Features:
+* Color Schemas 
+* Multi Languages Support
+* plugins
+* keyboard shortcuts
+
+# Usage
+Not recommended for standard usage , Recommended for Education perposes.
 Still currently Under Development (daily fixes and updates) ...
+
+# Changes Logs
+
+* version 0.0.2 : 
+    Horizontal scrolling support.
+    AutoSaving imporvements.
+    File opening / loading.
+    Portability improvements.
+    Major bug fixes.
+
+* version 0.0.1
+    initialization.
