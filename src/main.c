@@ -200,7 +200,7 @@ void move_cursor(int direction){
 
         if (E.cx + E.coloff < row->length - 1)
         {
-            if (E.cx == E.screen_cols - 1)
+            if (E.cx >= E.screen_cols - 1)
                 E.coloff++;
             else
                 E.cx++;
@@ -283,18 +283,12 @@ void deleteProcess(ROW *row, ROW *prevRow){
     {
         /*move Row to upper Row*/
         prevRow->chars = resizeString(prevRow->chars, prevRow->length + row->length - 1); /*-1 for one single null term*/
-        memmove(prevRow->chars + prevRow->length - 1, row->chars, row->length);           /*-2 to move null term + newline term*/
-        int initLength = prevRow->length;
+        memmove(prevRow->chars + prevRow->length - 1, row->chars, row->length);           /*-2 to move null term + newline term*/ 
+        if(prevRow->length -1 > E.screen_cols)
+        E.coloff = prevRow->length - E.screen_cols;
+        E.cx = prevRow->length-E.coloff - 1;
         prevRow->length = prevRow->length + row->length - 1;
         row->chars = realloc(row->chars, 1); //TODO : free();
-
-        if (prevRow->length > E.screen_cols) {
-            E.coloff = prevRow->length - E.screen_cols;
-            E.cx = E.screen_cols - row->length;
-        } else {
-            E.cx = initLength - 1; // -1 for one null term
-        }
-        
 
         /*move all rows by 1 position up and free() last row */
         int i;
@@ -511,7 +505,7 @@ void initEditor(){
     struct winsize w;
     ioctl(STDIN_FILENO, TIOCGWINSZ, &w);
     E.screen_rows = w.ws_row-1;
-    E.screen_cols = w.ws_col-1;
+    E.screen_cols = w.ws_col;
 
     /*Window size change handle*/
     struct sigaction newSigAction;
@@ -566,25 +560,20 @@ void loadFile(void){
         initEditor();
         return;
     }
-    
     initEditor();
-
     int i;
     char *line = NULL;
     size_t n = 0;
     ssize_t linelen;
     while ((linelen = getline(&line, &n, E.file)) != -1)
-    {
-        
+    {  
         if (linelen && line[linelen - 1] == '\n' || line[linelen - 1] == '\r')
         {
             line[linelen-1] = '\0';
         }
-
         if(E.row_index == E.numrows){
             E.numrows++;
         }
-
         E.row = realloc(E.row, E.numrows * sizeof(ROW));
         E.row[E.row_index].length = linelen;
         E.row[E.row_index].chars = malloc(linelen*sizeof(char));
@@ -601,7 +590,7 @@ void watchWindowSize(int sigNo){
     if(sigNo == SIGWINCH){
         if(ioctl(STDIN_FILENO, TIOCGWINSZ,&w) >=0){
             E.screen_rows = w.ws_row-1;
-            E.screen_cols = w.ws_col-1;
+            E.screen_cols = w.ws_col;
         }
     }    
 }
